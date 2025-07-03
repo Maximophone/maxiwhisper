@@ -1,0 +1,6 @@
+# requirements.txt – push‑to‑talk AssemblyAI streamer
+assemblyai[extras]==0.41.5     # latest stable SDK with audio helpers
+pynput>=1.7.6                  # keyboard hot‑key capture
+pyperclip>=1.8.2               # copy transcript to clipboard
+python-dotenv>=1.0.0           # load environment variables from .env file
+
