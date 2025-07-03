@@ -1,7 +1,7 @@
 # MaxiWhisper
 
 *A push‑to‑talk, low‑latency desktop voice‑to‑text helper powered by AssemblyAI’s v3 Universal‑Streaming API.*  
-Hold **F8** to speak, release to finish; a `.wav` + `.txt` pair is saved and the transcript is already in your clipboard.  
+Hold **F8** to speak, release to finish; the transcript is saved to `.txt` files and copied to your clipboard.  
 Latency is typically well under one second because audio is streamed over WebSockets instead of uploaded as a whole file. :contentReference[oaicite:0]{index=0}
 
 ---
@@ -49,7 +49,7 @@ python push_to_talk_stream.py
 | --------- | ------------------------ | ------------------------------------------------------------------------------------ |
 | `HOTKEY`  | `pynput.keyboard.Key.f8` | Change to any `pynput.keyboard.Key` or key combination. ([pynput.readthedocs.io][2]) |
 | `RATE_HZ` | `16000`                  | Sample rate sent to the API.                                                         |
-| `OUT_DIR` | `~/maxiwhisper_records`  | Where audio + text files are stored.                                                 |
+| `OUT_DIR` | `~/maxiwhisper_records`  | Where transcript files are stored.                                                   |
 
 Edit these near the top of **`push_to_talk_stream.py`**.
 
@@ -68,8 +68,9 @@ Each session produces:
 
 ```
 maxiwhisper_records/
-├─ 250703-153012.wav
-└─ 250703-153012.txt
+├─ 250703-153012.txt      # Final transcript
+├─ current_session.txt    # Live incremental backup
+└─ EMERGENCY_*.txt        # Emergency saves (if errors occur)
 ```
 
 *(timestamps are YYMMDD‑HHMMSS)*
