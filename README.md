@@ -1,7 +1,7 @@
 # MaxiWhisper
 
 *A push‑to‑talk, low‑latency desktop voice‑to‑text helper powered by AssemblyAI’s v3 Universal‑Streaming API.*  
-**F8**: Hold to speak (push-to-talk mode) | **Ctrl+F8**: Press to start/stop recording (toggle mode)  
+**Configurable hotkeys**: Push-to-talk and toggle recording modes with customizable key bindings  
 Latency is typically well under one second because audio is streamed over WebSockets instead of uploaded as a whole file. :contentReference[oaicite:0]{index=0}
 
 ---
@@ -51,7 +51,7 @@ python push_to_talk_stream.py
 | `RATE_HZ` | `16000`                  | Sample rate sent to the API.                                                         |
 | `OUT_DIR` | `~/maxiwhisper_records`  | Where transcript files are stored.                                                   |
 
-Edit these near the top of **`push_to_talk_stream.py`**.
+The app will show your actual key bindings when it starts. See **`config.py`** for extensive examples of different key combinations.
 
 ---
 
@@ -60,7 +60,9 @@ Edit these near the top of **`push_to_talk_stream.py`**.
 ```
 maxiwhisper/
 ├─ push_to_talk_stream.py   # main script
+├─ config.py                # configuration (customize your key bindings here)
 ├─ requirements.txt
+├─ .env                     # your API key (create this)
 └─ README.md
 ```
 
