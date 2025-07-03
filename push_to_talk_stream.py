@@ -75,9 +75,14 @@ stream_thread = None            # track the streaming thread
 ui_window = None                # tkinter window for displaying transcript
 ui_update_queue = Queue()       # thread-safe queue for UI updates
 ui_thread = None                # UI thread reference
+recording_ready = False         # Track if recording is actually ready
 
 def on_begin(_client, event: BeginEvent):
+    global recording_ready
     print(f"● Session {event.id} started")
+    recording_ready = True
+    # Update UI to show it's ready with a special marker
+    update_ui_text("READY|||🎤 Ready! Start speaking...")
 
 def on_turn(_client, event: TurnEvent):
     global current_transcript
@@ -122,8 +127,9 @@ def run_stream():
             pass
 
 def start_streaming():
-    global client, working, stream_thread, full_turns, current_transcript
+    global client, working, stream_thread, full_turns, current_transcript, recording_ready
     working = True
+    recording_ready = False  # Reset ready state
     full_turns.clear()  # clear previous session data
     current_transcript = ""  # clear current transcript
     
@@ -281,7 +287,7 @@ def create_ui_window():
     text_widget = tk.Text(root, 
                          wrap=tk.WORD,
                          bg=text_bg,
-                         fg=text_color,
+                         fg=getattr(config, 'UI_CONNECTING_COLOR', '#ffaa00'),  # Start with connecting color
                          font=(font_family, font_size),
                          padx=15,
                          pady=15,
@@ -290,7 +296,7 @@ def create_ui_window():
     text_widget.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
     
     # Add initial text
-    text_widget.insert('1.0', 'Listening...')
+    text_widget.insert('1.0', 'Connecting...')
     text_widget.config(state=tk.DISABLED)  # Make read-only
     
     ui_window = root
@@ -303,6 +309,11 @@ def run_ui():
     try:
         root, text_widget = create_ui_window()
         
+        # Get color settings from config
+        default_color = getattr(config, 'UI_TEXT_COLOR', '#ffffff')
+        connecting_color = getattr(config, 'UI_CONNECTING_COLOR', '#ffaa00')
+        ready_color = getattr(config, 'UI_READY_COLOR', '#00ff00')
+        
         def update_text():
             """Check for text updates from the queue"""
             try:
@@ -310,7 +321,21 @@ def run_ui():
                     new_text = ui_update_queue.get_nowait()
                     text_widget.config(state=tk.NORMAL)
                     text_widget.delete('1.0', tk.END)
-                    text_widget.insert('1.0', new_text if new_text else 'Listening...')
+                    
+                    # Check for special ready marker
+                    if new_text and new_text.startswith("READY|||"):
+                        # Remove the marker and set ready color
+                        new_text = new_text.replace("READY|||", "")
+                        text_widget.config(fg=ready_color)
+                    elif new_text:
+                        # Normal transcript text - use default color
+                        text_widget.config(fg=default_color)
+                    else:
+                        # Connecting state - use connecting color
+                        new_text = 'Connecting...'
+                        text_widget.config(fg=connecting_color)
+                    
+                    text_widget.insert('1.0', new_text)
                     text_widget.config(state=tk.DISABLED)
                     text_widget.see(tk.END)  # Auto-scroll
             except:

@@ -63,6 +63,8 @@ UI_HEIGHT = 150
 UI_BACKGROUND = '#1e1e1e'  # Window background
 UI_TEXT_BACKGROUND = '#2d2d2d'  # Text area background
 UI_TEXT_COLOR = '#ffffff'  # Text color
+UI_CONNECTING_COLOR = '#ffaa00'  # Text color while connecting (orange)
+UI_READY_COLOR = '#00ff00'  # Text color when ready (green)
 
 # UI font settings
 UI_FONT_FAMILY = 'Arial'
