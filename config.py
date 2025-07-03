@@ -47,6 +47,27 @@ SAMPLE_RATE = 16_000
 OUTPUT_DIR = "maxiwhisper_records"  # relative to your home directory
 # OUTPUT_DIR = "/path/to/your/custom/directory"  # absolute path example
 
+# ─── UI SETTINGS ─────────────────────────────────────────────────────────────
+
+# Enable/disable the visual transcription window
+SHOW_UI = True  # Set to False to disable the UI window
+
+# UI window position (can be 'bottom-right', 'bottom-left', 'top-right', 'top-left', 'center')
+UI_POSITION = 'bottom-right'
+
+# UI window size
+UI_WIDTH = 400
+UI_HEIGHT = 150
+
+# UI colors (hex format)
+UI_BACKGROUND = '#1e1e1e'  # Window background
+UI_TEXT_BACKGROUND = '#2d2d2d'  # Text area background
+UI_TEXT_COLOR = '#ffffff'  # Text color
+
+# UI font settings
+UI_FONT_FAMILY = 'Arial'
+UI_FONT_SIZE = 11
+
 # ─── KEY COMBINATION EXAMPLES ────────────────────────────────────────────────
 """
 Common key examples:

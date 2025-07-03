@@ -7,6 +7,8 @@ import pyperclip
 from pynput import keyboard
 import assemblyai as aai
 from dotenv import load_dotenv
+import tkinter as tk
+from queue import Queue
 from assemblyai.streaming.v3 import (
     StreamingClient, StreamingClientOptions,
     StreamingParameters, StreamingEvents, TurnEvent,
@@ -70,6 +72,9 @@ working     = False             # recording flag
 toggle_mode = False             # whether we're in toggle recording mode
 pressed_keys = set()            # track currently pressed keys
 stream_thread = None            # track the streaming thread
+ui_window = None                # tkinter window for displaying transcript
+ui_update_queue = Queue()       # thread-safe queue for UI updates
+ui_thread = None                # UI thread reference
 
 def on_begin(_client, event: BeginEvent):
     print(f"● Session {event.id} started")
@@ -81,6 +86,10 @@ def on_turn(_client, event: TurnEvent):
     
     # Always update the current transcript (partial or final)
     current_transcript = event.transcript.strip()
+    
+    # Update UI with complete transcript
+    complete_text = get_complete_transcript()
+    update_ui_text(complete_text)
     
     if event.end_of_turn:                # speaker pause detected
         full_turns.append(event.transcript.strip())
@@ -117,6 +126,10 @@ def start_streaming():
     working = True
     full_turns.clear()  # clear previous session data
     current_transcript = ""  # clear current transcript
+    
+    # Show UI window
+    show_ui()
+    
     client = StreamingClient(
         StreamingClientOptions(api_key=API_KEY, api_host="streaming.assemblyai.com")
     )
@@ -157,6 +170,9 @@ def stop_streaming():
     # Wait for the streaming thread to finish
     if stream_thread and stream_thread.is_alive():
         stream_thread.join(timeout=3.0)
+    
+    # Hide UI window
+    hide_ui()
     
     # Now get the complete text - the clipboard should have the most up-to-date version
     # since incremental_save() is called from the streaming events
@@ -212,6 +228,137 @@ def emergency_save():
             print(f"● Emergency save completed to {emergency_path.name}")
     except Exception as e:
         print(f"Emergency save failed: {e}")
+
+def create_ui_window():
+    """Create and configure the minimalistic transcription window"""
+    global ui_window
+    
+    root = tk.Tk()
+    root.title("Transcribing...")
+    
+    # Get UI settings from config
+    bg_color = getattr(config, 'UI_BACKGROUND', '#1e1e1e')
+    text_bg = getattr(config, 'UI_TEXT_BACKGROUND', '#2d2d2d')
+    text_color = getattr(config, 'UI_TEXT_COLOR', '#ffffff')
+    font_family = getattr(config, 'UI_FONT_FAMILY', 'Arial')
+    font_size = getattr(config, 'UI_FONT_SIZE', 11)
+    window_width = getattr(config, 'UI_WIDTH', 400)
+    window_height = getattr(config, 'UI_HEIGHT', 150)
+    position = getattr(config, 'UI_POSITION', 'bottom-right')
+    
+    # Window styling
+    root.configure(bg=bg_color)
+    root.attributes('-topmost', True)  # Always on top
+    
+    # Make window frameless for minimal look (optional)
+    # root.overrideredirect(True)  
+    
+    # Get screen dimensions
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    
+    # Calculate window position based on config
+    margin = 20
+    if position == 'bottom-right':
+        x = screen_width - window_width - margin
+        y = screen_height - window_height - 60
+    elif position == 'bottom-left':
+        x = margin
+        y = screen_height - window_height - 60
+    elif position == 'top-right':
+        x = screen_width - window_width - margin
+        y = margin
+    elif position == 'top-left':
+        x = margin
+        y = margin
+    else:  # center
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+    
+    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    
+    # Create text widget
+    text_widget = tk.Text(root, 
+                         wrap=tk.WORD,
+                         bg=text_bg,
+                         fg=text_color,
+                         font=(font_family, font_size),
+                         padx=15,
+                         pady=15,
+                         relief=tk.FLAT,
+                         borderwidth=0)
+    text_widget.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+    
+    # Add initial text
+    text_widget.insert('1.0', 'Listening...')
+    text_widget.config(state=tk.DISABLED)  # Make read-only
+    
+    ui_window = root
+    return root, text_widget
+
+def run_ui():
+    """Run the UI in a separate thread"""
+    global ui_window
+    
+    try:
+        root, text_widget = create_ui_window()
+        
+        def update_text():
+            """Check for text updates from the queue"""
+            try:
+                while not ui_update_queue.empty():
+                    new_text = ui_update_queue.get_nowait()
+                    text_widget.config(state=tk.NORMAL)
+                    text_widget.delete('1.0', tk.END)
+                    text_widget.insert('1.0', new_text if new_text else 'Listening...')
+                    text_widget.config(state=tk.DISABLED)
+                    text_widget.see(tk.END)  # Auto-scroll
+            except:
+                pass
+            
+            # Schedule next update check
+            if ui_window:
+                root.after(50, update_text)  # Check every 50ms
+        
+        # Start update checking
+        update_text()
+        
+        # Run the UI event loop
+        root.mainloop()
+    except Exception as e:
+        print(f"UI Error: {e}")
+    finally:
+        ui_window = None
+
+def show_ui():
+    """Start the UI in a separate thread"""
+    global ui_thread
+    
+    # Check if UI is enabled
+    if not getattr(config, 'SHOW_UI', True):
+        return
+    
+    ui_thread = threading.Thread(target=run_ui, daemon=True)
+    ui_thread.start()
+    time.sleep(0.2)  # Give UI time to initialize
+
+def hide_ui():
+    """Close the UI window"""
+    global ui_window
+    if ui_window:
+        try:
+            ui_window.quit()
+            ui_window = None
+        except:
+            pass
+
+def update_ui_text(text):
+    """Thread-safe UI text update"""
+    # Check if UI is enabled
+    if not getattr(config, 'SHOW_UI', True):
+        return
+    
+    ui_update_queue.put(text)
 
 def incremental_save():
     """Save current transcript incrementally during long sessions"""
