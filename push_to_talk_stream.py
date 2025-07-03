@@ -33,6 +33,8 @@ current_transcript = ""         # latest transcript (including partial)
 mic_stream  = None
 client      = None
 working     = False             # recording flag
+toggle_mode = False             # whether we're in toggle recording mode
+ctrl_pressed = False            # track if Ctrl key is currently pressed
 stream_thread = None            # track the streaming thread
 
 def on_begin(_client, event: BeginEvent):
@@ -90,7 +92,8 @@ def start_streaming():
     client.on(StreamingEvents.Error, on_error)
     stream_thread = threading.Thread(target=run_stream, daemon=True)
     stream_thread.start()
-    print("● Listening… (hold F8)")
+    if not toggle_mode:
+        print("● Listening… (release F8 to stop)")
 
 def get_complete_transcript():
     """Get the complete transcript using the same logic as incremental_save"""
@@ -104,7 +107,7 @@ def get_complete_transcript():
     return " ".join(complete_text_parts).strip()
 
 def stop_streaming():
-    global working, mic_stream, stream_thread
+    global working, mic_stream, stream_thread, toggle_mode
     working = False
     
     # First, close the stream to stop new data
@@ -125,12 +128,12 @@ def stop_streaming():
     # since incremental_save() is called from the streaming events
     try:
         final_text = pyperclip.paste().strip()
-        print(f"DEBUG: Using clipboard text with length: {len(final_text)}")
+        print(f"● Using clipboard text with length: {len(final_text)}")
     except Exception as e:
         print(f"Warning: Could not get clipboard text - {e}")
         # Fallback to our function
         final_text = get_complete_transcript()
-        print(f"DEBUG: Using fallback text with length: {len(final_text)}")
+        print(f"● Using fallback text with length: {len(final_text)}")
     
     # Create final timestamped file
     ts = datetime.datetime.now().strftime("%y%m%d-%H%M%S")
@@ -138,6 +141,10 @@ def stop_streaming():
     
     # Save transcript
     save_transcript(final_text, txt_path)
+    
+    # Reset toggle mode if this was a toggle session
+    if toggle_mode:
+        toggle_mode = False
 
 def save_transcript(text, file_path):
     """Robustly save transcript to file and clipboard"""
@@ -188,18 +195,47 @@ def incremental_save():
         pass
 
 def on_press(key):
+    global toggle_mode, ctrl_pressed
     try:
-        if key == HOTKEY and not working:
-            start_streaming()
+        # Track Ctrl key state
+        if key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            ctrl_pressed = True
+        
+        elif key == HOTKEY:
+            if ctrl_pressed:
+                # Ctrl+F8 pressed - toggle mode
+                if not working:
+                    toggle_mode = True
+                    start_streaming()
+                    print("● Toggle mode: Recording started (Ctrl+F8 to stop)")
+                else:
+                    # Stop toggle recording
+                    toggle_mode = False
+                    stop_streaming()
+                    print("● Toggle mode: Recording stopped")
+            else:
+                # Regular F8 pressed (hold-to-talk mode)
+                if not working and not toggle_mode:
+                    start_streaming()
+                elif toggle_mode:
+                    print("● Already recording in toggle mode. Use Ctrl+F8 to stop.")
     except Exception as e:
         print(f"Error in key press handler: {e}")
         emergency_save()
 
 def on_release(key):
+    global ctrl_pressed
     try:
-        if key == HOTKEY and working:
-            stop_streaming()
-        if key == keyboard.Key.esc:          # optional quit
+        # Track Ctrl key state
+        if key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
+            ctrl_pressed = False
+        
+        elif key == HOTKEY:
+            # Regular F8 release (only if not in toggle mode)
+            if working and not toggle_mode:
+                stop_streaming()
+        
+        elif key == keyboard.Key.esc:          # optional quit
             # Emergency save before quitting
             if working:
                 emergency_save()
@@ -208,7 +244,7 @@ def on_release(key):
         print(f"Error in key release handler: {e}")
         emergency_save()
 
-print("Hold F8 to speak, release to finish (ESC to quit).")
+print("F8: Hold to speak (push-to-talk) | Ctrl+F8: Toggle recording | ESC: Quit")
 try:
     with keyboard.Listener(on_press=on_press, on_release=on_release) as L:
         L.join()

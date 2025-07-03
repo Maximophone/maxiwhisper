@@ -1,7 +1,7 @@
 # MaxiWhisper
 
 *A push‑to‑talk, low‑latency desktop voice‑to‑text helper powered by AssemblyAI’s v3 Universal‑Streaming API.*  
-Hold **F8** to speak, release to finish; the transcript is saved to `.txt` files and copied to your clipboard.  
+**F8**: Hold to speak (push-to-talk mode) | **Ctrl+F8**: Press to start/stop recording (toggle mode)  
 Latency is typically well under one second because audio is streamed over WebSockets instead of uploaded as a whole file. :contentReference[oaicite:0]{index=0}
 
 ---
